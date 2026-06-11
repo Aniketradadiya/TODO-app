@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusFlow — Stay Focused, Achieve More</title>
+  <!-- Google Fonts: Inter and Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- App Wrapper (Mobile Mockup Frame) -->
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <i data-lucide="activity" class="logo-icon"></i>
+        <span>FocusFlow</span>
+      </div>
+      <div class="header-actions">
+        <button id="theme-toggle-btn" class="icon-btn" aria-label="Toggle Theme">
+          <i data-lucide="moon" id="theme-icon"></i>
+        </button>
+        <div class="profile-avatar" id="profile-btn">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256" alt="User Profile" class="avatar-img" id="user-avatar-display">
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main-content">
+      
+      <!-- VIEW 1: HOME VIEW -->
+      <section id="view-home" class="app-view active">
+        <!-- Dashboard Welcome Progress Card -->
+        <div class="dashboard-hero-card">
+          <div class="hero-card-content">
+            <h1 class="hero-greeting" id="hero-greeting-text">Stay Focused, Alex.</h1>
+            <p class="hero-subtitle" id="hero-subtitle-text">You have 8 tasks to finish today.</p>
+            
+            <div class="progress-section">
+              <div class="progress-labels">
+                <span class="progress-status" id="progress-tasks-count">12/20 tasks completed</span>
+                <span class="progress-percentage" id="progress-pct-text">60%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-bar" id="hero-progress-bar" style="width: 60%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- High Priority Notification Card -->
+        <div class="high-priority-card" id="priority-alert-widget">
+          <div class="alert-icon-wrapper">
+            <div class="alert-exclamation">!</div>
+          </div>
+          <div class="alert-details">
+            <h3 class="alert-title" id="priority-alert-count">3 High Priority</h3>
+            <p class="alert-subtitle" id="priority-alert-due">Due before 5:00 PM</p>
+            <button class="alert-action-btn" id="view-urgent-btn">View urgent</button>
+          </div>
+        </div>
+
+        <!-- Filters & Sorting Section -->
+        <div class="home-filters-row">
+          <div class="tabs-navigation">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="pending">Pending</button>
+            <button class="tab-btn" data-filter="completed">Completed</button>
+          </div>
+          
+          <div class="sorting-selector-wrapper">
+            <label for="home-sort">Sort by:</label>
+            <select id="home-sort" class="sort-select">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="priority">Priority</option>
+              <option value="deadline">Deadline</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tasks Scroll Area -->
+        <div class="tasks-scroll-area">
+          <div class="tasks-list" id="home-tasks-list">
+            <!-- Dynamically rendered home items -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: TASKS (DAILY SPRINT) VIEW -->
+      <section id="view-tasks" class="app-view">
+        <div class="sprint-header">
+          <h1 class="sprint-title">Daily Sprint</h1>
+          <p class="sprint-subtitle">Manage your active priorities and work flow.</p>
+          <div class="sprint-date">
+            <i data-lucide="calendar"></i>
+            <span id="current-sprint-date">Tuesday, Oct 24</span>
+          </div>
+        </div>
+
+        <!-- Add Task Form Container -->
+        <div class="add-task-card">
+          <form id="add-task-form">
+            <div class="task-input-wrapper">
+              <i data-lucide="plus-circle" class="input-icon"></i>
+              <input type="text" id="task-title-input" placeholder="What needs to be done?" required autocomplete="off">
+            </div>
+
+            <div class="form-row-group">
+              <div class="category-selection-group">
+                <span class="field-label">CATEGORY</span>
+                <div class="category-pills" id="category-pills-container">
+                  <button type="button" class="pill-btn active" data-category="Work">Work</button>
+                  <button type="button" class="pill-btn" data-category="Personal">Personal</button>
+                  <button type="button" class="pill-btn" data-category="Shopping">Shopping</button>
+                </div>
+              </div>
+
+              <div class="priority-selection-group">
+                <span class="field-label">PRIORITY</span>
+                <select id="task-priority-input" class="form-dropdown">
+                  <option value="Low">Low</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row-group date-priority-row">
+              <div class="deadline-input-group">
+                <span class="field-label">DUE DATE & TIME</span>
+                <input type="datetime-local" id="task-deadline-input" class="form-datetime">
+              </div>
+
+              <div class="submit-btn-wrapper">
+                <button type="submit" class="primary-action-btn" id="submit-task-btn">
+                  <span>Add Task</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Sprint List Filters -->
+        <div class="sprint-filters-row">
+          <div class="sprint-tabs">
+            <button class="sprint-tab-btn active" data-sprint-filter="pending">Pending</button>
+            <button class="sprint-tab-btn" data-sprint-filter="completed">Completed</button>
+            <button class="sprint-tab-btn" data-sprint-filter="all">All</button>
+          </div>
+          <button class="icon-text-btn" id="sprint-sort-btn" title="Toggle sorting order">
+            <i data-lucide="arrow-up-down"></i>
+            <span id="sprint-sort-label">Sort by Priority</span>
+          </button>
+        </div>
+
+        <!-- Daily Sprint Tasks list -->
+        <div class="tasks-scroll-area">
+          <div class="tasks-list" id="sprint-tasks-list">
+            <!-- Dynamically rendered sprint items -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: FOLDERS VIEW -->
+      <section id="view-folders" class="app-view">
+        <div class="sprint-header">
+          <h1 class="sprint-title">Categories</h1>
+          <p class="sprint-subtitle">Organize and segment your life's goals.</p>
+        </div>
+
+        <div class="folders-grid" id="folders-grid-container">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Add Custom Category Card -->
+        <div class="add-category-card">
+          <h3>Create Custom Category</h3>
+          <form id="add-category-form" class="inline-form">
+            <input type="text" id="new-category-name" placeholder="Category name (e.g. Health, Finance)" required autocomplete="off">
+            <button type="submit" class="icon-submit-btn"><i data-lucide="plus"></i></button>
+          </form>
+        </div>
+      </section>
+
+      <!-- VIEW 4: SETTINGS VIEW -->
+      <section id="view-settings" class="app-view">
+        <div class="sprint-header">
+          <h1 class="sprint-title">Settings</h1>
+          <p class="sprint-subtitle">Personalize your workspace configuration.</p>
+        </div>
+
+        <!-- User profile details editing -->
+        <div class="settings-card">
+          <h3 class="settings-card-title"><i data-lucide="user"></i> Personalization</h3>
+          <div class="setting-item">
+            <label for="settings-username">Display Name</label>
+            <div class="setting-input-row">
+              <input type="text" id="settings-username" value="Alex">
+              <button class="secondary-btn" id="save-username-btn">Save</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <label for="settings-avatar">Profile Picture URL</label>
+            <div class="setting-input-row">
+              <input type="url" id="settings-avatar" placeholder="Paste image URL here">
+              <button class="secondary-btn" id="save-avatar-btn">Update</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- General stats card -->
+        <div class="settings-card stats-card">
+          <h3 class="settings-card-title"><i data-lucide="bar-chart-2"></i> Activity Statistics</h3>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-number" id="stats-total-created">0</span>
+              <span class="stat-label">Total Created</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-number" id="stats-total-completed">0</span>
+              <span class="stat-label">Total Completed</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-number" id="stats-total-pending">0</span>
+              <span class="stat-label">Current Pending</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-number" id="stats-productivity-rate">0%</span>
+              <span class="stat-label">Productivity</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reset card -->
+        <div class="settings-card danger-card">
+          <h3 class="settings-card-title"><i data-lucide="shield-alert"></i> Danger Zone</h3>
+          <p>Resetting will clear all tasks, custom categories, settings and restores default dummy data.</p>
+          <button class="danger-action-btn" id="reset-app-btn">Reset All Data</button>
+        </div>
+      </section>
+
+      <!-- EMPTY STATE TEMPLATE (Hidden by default) -->
+      <div id="empty-state-template" class="empty-state-container hidden">
+        <div class="empty-illustration-wrapper">
+          <svg width="180" height="180" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" class="empty-svg">
+            <rect x="50" y="30" width="100" height="140" rx="12" fill="var(--color-bg-alt)" stroke="var(--color-border)" stroke-width="3" />
+            <circle cx="80" cy="70" r="8" fill="none" stroke="var(--color-primary)" stroke-width="3" />
+            <line x1="105" y1="70" x2="150" y2="70" stroke="var(--color-text-muted)" stroke-width="3" stroke-linecap="round" />
+            <circle cx="80" cy="105" r="8" fill="none" stroke="var(--color-primary)" stroke-width="3" />
+            <line x1="105" y1="105" x2="150" y2="105" stroke="var(--color-text-muted)" stroke-width="3" stroke-linecap="round" />
+            <rect x="72" y="132" width="16" height="16" rx="4" fill="var(--color-primary)" />
+            <path d="M77 140L80 143L84 137" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="105" y1="140" x2="150" y2="140" stroke="var(--color-text-muted)" stroke-width="3" stroke-linecap="round" />
+            <!-- Floating folder tag in mockup -->
+            <g transform="translate(145, 110)">
+              <rect x="0" y="0" width="45" height="24" rx="6" fill="var(--color-card)" stroke="var(--color-primary)" stroke-width="2" />
+              <path d="M8 12C8 10 9 8 11 8C13 8 14 10 14 12C14 14 13 16 11 16C9 16 8 14 8 12Z" fill="var(--color-primary)" opacity="0.3"/>
+              <path d="M12 7L16 12L12 17" stroke="var(--color-primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              <text x="18" y="15" fill="var(--color-primary)" font-family="'Outfit', sans-serif" font-weight="bold" font-size="8">WRK</text>
+            </g>
+          </svg>
+        </div>
+        <h2 class="empty-title">Ready for your first flow?</h2>
+        <p class="empty-subtitle">Your workspace is clear and ready for focus. Break down your goals into actionable steps.</p>
+        
+        <div class="empty-actions">
+          <button class="primary-action-btn empty-btn" id="empty-create-btn">
+            <i data-lucide="plus-circle"></i>
+            <span>Create your first task</span>
+          </button>
+          <button class="secondary-btn empty-btn" id="empty-import-btn">
+            <i data-lucide="download"></i>
+            <span>Import tasks</span>
+          </button>
+        </div>
+
+        <!-- Walkthrough Card List at screen bottom -->
+        <div class="guide-cards-list">
+          <div class="guide-card">
+            <div class="guide-card-icon"><i data-lucide="keyboard"></i></div>
+            <div class="guide-card-content">
+              <h4>Quick Add</h4>
+              <p>Press <kbd>Ctrl</kbd> + <kbd>N</kbd> anywhere to start typing a new task instantly.</p>
+            </div>
+          </div>
+          <div class="guide-card">
+            <div class="guide-card-icon"><i data-lucide="clock"></i></div>
+            <div class="guide-card-content">
+              <h4>Focus Mode</h4>
+              <p>Click the clock icon on any task to enter an immersive Pomodoro focus session.</p>
+            </div>
+          </div>
+          <div class="guide-card">
+            <div class="guide-card-icon"><i data-lucide="users"></i></div>
+            <div class="guide-card-content">
+              <h4>Collaborate</h4>
+              <p>Invite teammates to your categories to share checklists and track progress together.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- App Bottom Floating Navigation Bar -->
+    <nav class="app-bottom-nav">
+      <button class="nav-item active" data-view="home" aria-label="Navigate to Home">
+        <i data-lucide="home"></i>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-view="tasks" aria-label="Navigate to Tasks">
+        <i data-lucide="clipboard-list"></i>
+        <span>Tasks</span>
+      </button>
+      
+      <!-- Big Center Add Button -->
+      <div class="nav-center-action">
+        <button class="nav-floating-add-btn" id="global-floating-add-btn" aria-label="Quick Add Task">
+          <i data-lucide="plus" class="btn-plus-icon"></i>
+        </button>
+      </div>
+
+      <button class="nav-item" data-view="folders" aria-label="Navigate to Folders">
+        <i data-lucide="folder"></i>
+        <span>Folders</span>
+      </button>
+      <button class="nav-item" data-view="settings" aria-label="Navigate to Settings">
+        <i data-lucide="settings"></i>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+  </div> <!-- End App Wrapper -->
+
+  <!-- CUSTOM CONFIRM DIALOG (DELETE MODAL) -->
+  <div class="modal-backdrop hidden" id="delete-confirm-modal">
+    <div class="modal-wrapper">
+      <div class="modal-body">
+        <div class="modal-alert-icon">
+          <i data-lucide="triangle-alert"></i>
+        </div>
+        <h2 class="modal-title">Delete this task?</h2>
+        <p class="modal-description">This action cannot be undone. All data associated with this task will be permanently removed.</p>
+        
+        <div class="modal-button-group">
+          <button class="modal-btn btn-danger" id="modal-delete-confirm-btn">Delete</button>
+          <button class="modal-btn btn-secondary" id="modal-delete-cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Javascript -->
+  <script src="app.js"></script>
+</body>
+</html>
