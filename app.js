@@ -15,7 +15,15 @@ let state = {
   theme: "light",
   username: "Alex",
   avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256",
-  taskToDeleteId: null // stores task ID when opening confirmation modal
+  taskToDeleteId: null, // stores task ID when opening confirmation modal
+  
+  // Pomodoro Focus Timer State
+  focusTimerMinutes: 25,
+  focusTimerSeconds: 0,
+  isTimerRunning: false,
+  timerIntervalId: null,
+  currentPreset: 25, // default 25 minutes preset
+  activeFocusTaskId: null
 };
 
 // --- Mock Initial Tasks ---
@@ -419,6 +427,11 @@ function createTaskCardDOM(task, isSprint = false) {
       </div>
 
       <div class="task-actions">
+        ${!task.completed ? `
+          <button class="task-action-btn btn-focus" title="Start Focus Session" data-id="${task.id}">
+            <i data-lucide="clock" style="width: 18px; height: 18px;"></i>
+          </button>
+        ` : ''}
         <button class="task-action-btn btn-delete" title="Delete task" data-id="${task.id}">
           <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
         </button>
@@ -446,6 +459,11 @@ function createTaskCardDOM(task, isSprint = false) {
       </div>
 
       <div class="task-actions">
+        ${!task.completed ? `
+          <button class="task-action-btn btn-focus" title="Start Focus Session" data-id="${task.id}">
+            <i data-lucide="clock" style="width: 18px; height: 18px;"></i>
+          </button>
+        ` : ''}
         <button class="task-action-btn btn-delete" title="Delete task" data-id="${task.id}">
           <i data-lucide="trash-2" style="width: 18px; height: 18px;"></i>
         </button>
@@ -458,6 +476,15 @@ function createTaskCardDOM(task, isSprint = false) {
   checkbox.addEventListener("change", () => {
     toggleTaskCompletion(task.id);
   });
+
+  // Bind focus timer action
+  const focusBtn = card.querySelector(".btn-focus");
+  if (focusBtn) {
+    focusBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openFocusTimer(task.id);
+    });
+  }
 
   // Bind delete button
   const delBtn = card.querySelector(".btn-delete");
@@ -742,6 +769,188 @@ function executeDeleteTask() {
   }
 }
 
+// --- Pomodoro Focus Timer Controllers ---
+function openFocusTimer(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  state.activeFocusTaskId = taskId;
+  
+  // Set task title text
+  const activeTaskTitleEl = document.getElementById("focus-active-task-title");
+  if (activeTaskTitleEl) {
+    activeTaskTitleEl.textContent = task.title;
+  }
+
+  // Reset timer parameters to current preset minutes
+  state.focusTimerMinutes = state.currentPreset;
+  state.focusTimerSeconds = 0;
+  state.isTimerRunning = false;
+  if (state.timerIntervalId) {
+    clearInterval(state.timerIntervalId);
+    state.timerIntervalId = null;
+  }
+
+  // Update controls display
+  updateFocusTimerUI();
+
+  // Show focus timer overlay
+  const focusModal = document.getElementById("focus-timer-modal");
+  if (focusModal) {
+    focusModal.classList.remove("hidden");
+    updatePlayPauseBtnIcon();
+  }
+}
+
+function closeFocusTimer() {
+  // Pause countdown timer if running
+  pauseFocusTimer();
+  
+  state.activeFocusTaskId = null;
+  
+  const focusModal = document.getElementById("focus-timer-modal");
+  if (focusModal) {
+    focusModal.classList.add("hidden");
+  }
+}
+
+function togglePlayPauseFocusTimer() {
+  if (state.isTimerRunning) {
+    pauseFocusTimer();
+  } else {
+    startFocusTimer();
+  }
+}
+
+function startFocusTimer() {
+  if (state.isTimerRunning) return;
+
+  state.isTimerRunning = true;
+  state.timerIntervalId = setInterval(tickFocusTimer, 1000);
+  
+  updatePlayPauseBtnIcon();
+}
+
+function pauseFocusTimer() {
+  if (!state.isTimerRunning) return;
+
+  state.isTimerRunning = false;
+  if (state.timerIntervalId) {
+    clearInterval(state.timerIntervalId);
+    state.timerIntervalId = null;
+  }
+  
+  updatePlayPauseBtnIcon();
+}
+
+function resetFocusTimer() {
+  pauseFocusTimer();
+  state.focusTimerMinutes = state.currentPreset;
+  state.focusTimerSeconds = 0;
+  updateFocusTimerUI();
+}
+
+function changeTimerPreset(minutes) {
+  pauseFocusTimer();
+  state.currentPreset = minutes;
+  state.focusTimerMinutes = minutes;
+  state.focusTimerSeconds = 0;
+  
+  // Update class lists highlights on buttons
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    const btnMins = parseInt(btn.getAttribute("data-minutes"));
+    btn.classList.toggle("active", btnMins === minutes);
+  });
+  
+  updateFocusTimerUI();
+}
+
+function tickFocusTimer() {
+  if (state.focusTimerMinutes === 0 && state.focusTimerSeconds === 0) {
+    // Session Done!
+    pauseFocusTimer();
+    playTimerAlertSound();
+    alert("Focus session completed! Time to take a break.");
+    resetFocusTimer();
+    return;
+  }
+
+  if (state.focusTimerSeconds === 0) {
+    state.focusTimerMinutes--;
+    state.focusTimerSeconds = 59;
+  } else {
+    state.focusTimerSeconds--;
+  }
+
+  updateFocusTimerUI();
+}
+
+function updatePlayPauseBtnIcon() {
+  const iconEl = document.getElementById("timer-play-icon");
+  if (iconEl) {
+    iconEl.setAttribute("data-lucide", state.isTimerRunning ? "pause" : "play");
+    lucide.createIcons();
+  }
+}
+
+function updateFocusTimerUI() {
+  // Update numbers countdown display text
+  const displayEl = document.getElementById("timer-display-time");
+  if (displayEl) {
+    const minsStr = String(state.focusTimerMinutes).padStart(2, '0');
+    const secsStr = String(state.focusTimerSeconds).padStart(2, '0');
+    displayEl.textContent = `${minsStr}:${secsStr}`;
+  }
+
+  // Update circular progress SVG track stroke-dashoffset
+  const progressEl = document.getElementById("timer-circle-progress");
+  if (progressEl) {
+    const totalSeconds = state.currentPreset * 60;
+    const remainingSeconds = state.focusTimerMinutes * 60 + state.focusTimerSeconds;
+    const fraction = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+    
+    // SVG circle circumference for r=90 is 2 * Math.PI * 90 = 565.48
+    const circumference = 565.48;
+    const offset = circumference * (1 - fraction);
+    progressEl.style.strokeDashoffset = offset;
+  }
+}
+
+function completeActiveFocusTask() {
+  if (state.activeFocusTaskId) {
+    toggleTaskCompletion(state.activeFocusTaskId);
+    closeFocusTimer();
+  }
+}
+
+function playTimerAlertSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playBeep = (freq, duration, delay) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+      
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + delay + duration - 0.05);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + duration);
+    };
+    
+    // Play double beep notification chime
+    playBeep(880, 0.35, 0);       // A5 Note
+    playBeep(1174.66, 0.5, 0.18); // D6 Note
+  } catch (e) {
+    console.error("Synthesizing timer chime alert failed:", e);
+  }
+}
+
 // --- Settings Modifiers ---
 function saveUsername() {
   const input = document.getElementById("settings-username");
@@ -924,6 +1133,44 @@ function setupEventListeners() {
     });
   }
 
+  // Pomodoro Focus Timer controls listeners
+  const closeFocusBtn = document.getElementById("focus-close-btn");
+  if (closeFocusBtn) {
+    closeFocusBtn.addEventListener("click", closeFocusTimer);
+  }
+
+  const timerPlayBtn = document.getElementById("timer-play-btn");
+  if (timerPlayBtn) {
+    timerPlayBtn.addEventListener("click", togglePlayPauseFocusTimer);
+  }
+
+  const timerResetBtn = document.getElementById("timer-reset-btn");
+  if (timerResetBtn) {
+    timerResetBtn.addEventListener("click", resetFocusTimer);
+  }
+
+  const timerCompleteBtn = document.getElementById("timer-complete-btn");
+  if (timerCompleteBtn) {
+    timerCompleteBtn.addEventListener("click", completeActiveFocusTask);
+  }
+
+  // Preset buttons click bindings
+  document.querySelectorAll(".preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const minutes = parseInt(btn.getAttribute("data-minutes"));
+      changeTimerPreset(minutes);
+    });
+  });
+
+  const focusTimerModal = document.getElementById("focus-timer-modal");
+  if (focusTimerModal) {
+    focusTimerModal.addEventListener("click", (e) => {
+      if (e.target === focusTimerModal) {
+        closeFocusTimer();
+      }
+    });
+  }
+
   // Theme Toggle Toggler
   const themeToggleBtn = document.getElementById("theme-toggle-btn");
   if (themeToggleBtn) {
@@ -977,6 +1224,7 @@ function setupEventListeners() {
     
     if (e.key === "Escape") {
       closeDeleteModal();
+      closeFocusTimer();
     }
   });
 }

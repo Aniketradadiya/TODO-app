@@ -360,6 +360,53 @@
     </div>
   </div>
 
+  <!-- POMODORO FOCUS TIMER OVERLAY -->
+  <div class="modal-backdrop hidden" id="focus-timer-modal">
+    <div class="focus-timer-wrapper">
+      <div class="focus-timer-header">
+        <button class="icon-btn close-focus-btn" id="focus-close-btn" aria-label="Exit Focus Mode">
+          <i data-lucide="x"></i>
+        </button>
+        <span class="focus-mode-indicator">Focus Session</span>
+        <div style="width: 40px;"></div> <!-- Spacer to balance layout -->
+      </div>
+      
+      <div class="focus-timer-body">
+        <span class="focus-task-label">CURRENTLY FOCUSING ON</span>
+        <h2 class="focus-task-title" id="focus-active-task-title">Task Title Placeholder</h2>
+        
+        <!-- Circular Timer Visualizer -->
+        <div class="timer-display-container">
+          <svg class="timer-svg" viewBox="0 0 200 200">
+            <circle class="timer-circle-bg" cx="100" cy="100" r="90" fill="none" stroke-width="5" />
+            <circle class="timer-circle-progress" id="timer-circle-progress" cx="100" cy="100" r="90" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="565.48" stroke-dashoffset="0" />
+          </svg>
+          <div class="timer-time-text" id="timer-display-time">25:00</div>
+        </div>
+
+        <!-- Presets Selection -->
+        <div class="timer-presets">
+          <button class="preset-btn active" data-minutes="25">25m Focus</button>
+          <button class="preset-btn" data-minutes="5">5m Break</button>
+          <button class="preset-btn" data-minutes="15">15m Break</button>
+        </div>
+        
+        <!-- Controls Buttons Row -->
+        <div class="timer-controls">
+          <button class="timer-control-btn btn-reset" id="timer-reset-btn" title="Reset Timer" aria-label="Reset Timer">
+            <i data-lucide="rotate-ccw"></i>
+          </button>
+          <button class="timer-control-btn btn-play" id="timer-play-btn" title="Play / Pause Timer" aria-label="Play/Pause Timer">
+            <i data-lucide="play" id="timer-play-icon"></i>
+          </button>
+          <button class="timer-control-btn btn-complete" id="timer-complete-btn" title="Mark Task as Completed" aria-label="Mark Complete">
+            <i data-lucide="check-circle-2"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Javascript -->
   <script src="app.js"></script>
 </body>
