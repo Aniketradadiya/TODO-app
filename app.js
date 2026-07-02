@@ -23,7 +23,12 @@ let state = {
   isTimerRunning: false,
   timerIntervalId: null,
   currentPreset: 25, // default 25 minutes preset
-  activeFocusTaskId: null
+  activeFocusTaskId: null,
+
+  // Authentication State
+  isAuthenticated: false,
+  userEmail: "",
+  authMode: "signin" // signin or signup
 };
 
 // --- Mock Initial Tasks ---
@@ -45,7 +50,7 @@ const DEFAULT_TASKS = [
     priority: "Medium",
     deadline: getFutureDateString(1, 10, 0), // Tomorrow
     createdAt: Date.now() - 3600000 * 2
-  },
+  },``````````````````````````````````````````````````````````````````
   {
     id: "task-3",
     title: "Send weekly newsletter",
@@ -149,40 +154,61 @@ function formatDeadlineDisplay(deadlineString) {
 
 // --- Local Storage Management ---
 function saveState() {
-  localStorage.setItem("focusflow_tasks", JSON.stringify(state.tasks));
-  localStorage.setItem("focusflow_categories", JSON.stringify(state.categories));
+  // Save auth session details
+  const authSession = {
+    isAuthenticated: state.isAuthenticated,
+    userEmail: state.userEmail,
+    username: state.username,
+    avatar: state.avatar
+  };
+  localStorage.setItem("focusflow_auth_session", JSON.stringify(authSession));
+
+  // If authenticated, save user specific tasks/categories
+  if (state.isAuthenticated && state.userEmail) {
+    localStorage.setItem(`focusflow_tasks_${state.userEmail}`, JSON.stringify(state.tasks));
+    localStorage.setItem(`focusflow_categories_${state.userEmail}`, JSON.stringify(state.categories));
+  }
+  
   localStorage.setItem("focusflow_theme", state.theme);
-  localStorage.setItem("focusflow_username", state.username);
-  localStorage.setItem("focusflow_avatar", state.avatar);
 }
 
 function loadState() {
-  const savedTasks = localStorage.getItem("focusflow_tasks");
-  const savedCats = localStorage.getItem("focusflow_categories");
-  const savedTheme = localStorage.getItem("focusflow_theme");
-  const savedUsername = localStorage.getItem("focusflow_username");
-  const savedAvatar = localStorage.getItem("focusflow_avatar");
+  // Load auth session details
+  const authSessionStr = localStorage.getItem("focusflow_auth_session");
+  if (authSessionStr) {
+    const session = JSON.parse(authSessionStr);
+    state.isAuthenticated = session.isAuthenticated || false;
+    state.userEmail = session.userEmail || "";
+    state.username = session.username || "Alex";
+    state.avatar = session.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256";
+  }
 
-  if (savedTasks) {
-    state.tasks = JSON.parse(savedTasks);
+  // Load private task storage if authenticated
+  if (state.isAuthenticated && state.userEmail) {
+    const savedTasks = localStorage.getItem(`focusflow_tasks_${state.userEmail}`);
+    const savedCats = localStorage.getItem(`focusflow_categories_${state.userEmail}`);
+    
+    if (savedTasks) {
+      state.tasks = JSON.parse(savedTasks);
+    } else {
+      // First signin for this user, populate default mockup tasks
+      state.tasks = [...DEFAULT_TASKS];
+      localStorage.setItem(`focusflow_tasks_${state.userEmail}`, JSON.stringify(state.tasks));
+    }
+
+    if (savedCats) {
+      state.categories = JSON.parse(savedCats);
+    } else {
+      state.categories = ["Work", "Personal", "Shopping"];
+    }
   } else {
-    state.tasks = [...DEFAULT_TASKS];
+    state.tasks = [];
+    state.categories = ["Work", "Personal", "Shopping"];
   }
 
-  if (savedCats) {
-    state.categories = JSON.parse(savedCats);
-  }
-
+  const savedTheme = localStorage.getItem("focusflow_theme");
   if (savedTheme) {
     state.theme = savedTheme;
-  }
-
-  if (savedUsername) {
-    state.username = savedUsername;
-  }
-
-  if (savedAvatar) {
-    state.avatar = savedAvatar;
   }
 }
 
@@ -279,6 +305,12 @@ function updateUI() {
     }
   } else {
     priorityAlertWidget.classList.add("hidden");
+  }
+
+  // Settings email display update
+  const userEmailEl = document.getElementById("settings-user-email");
+  if (userEmailEl) {
+    userEmailEl.textContent = state.userEmail ? `Logged in as: ${state.userEmail}` : "Not logged in";
   }
 
   // Render list panels
@@ -625,6 +657,14 @@ function showEmptyState(targetContainer, resetCallback) {
 
 // --- View Router Controller ---
 function switchView(viewName) {
+  // If not authenticated, force routing to login
+  if (!state.isAuthenticated) {
+    viewName = "login";
+  } else if (viewName === "login") {
+    // If authenticated, prevent routing back to login
+    viewName = "home";
+  }
+
   state.activeView = viewName;
   
   document.querySelectorAll(".app-view").forEach(view => {
@@ -635,6 +675,18 @@ function switchView(viewName) {
   if (targetView) {
     targetView.classList.add("active");
     targetView.scrollTop = 0;
+  }
+
+  // Toggle header and bottom navbar visibility based on auth state
+  const header = document.querySelector(".app-header");
+  const bottomNav = document.querySelector(".app-bottom-nav");
+  
+  if (state.isAuthenticated) {
+    if (header) header.classList.remove("hidden");
+    if (bottomNav) bottomNav.classList.remove("hidden");
+  } else {
+    if (header) header.classList.add("hidden");
+    if (bottomNav) bottomNav.classList.add("hidden");
   }
 
   if (viewName !== "tasks") {
@@ -1203,6 +1255,23 @@ function setupEventListeners() {
   const resetBtn = document.getElementById("reset-app-btn");
   if (resetBtn) resetBtn.addEventListener("click", resetAllData);
 
+  // Logout button
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", handleLogout);
+  }
+
+  // Authentication form listeners
+  const authForm = document.getElementById("auth-form");
+  if (authForm) {
+    authForm.addEventListener("submit", handleAuthSubmit);
+  }
+
+  const authSwitchBtn = document.getElementById("auth-switch-btn");
+  if (authSwitchBtn) {
+    authSwitchBtn.addEventListener("click", toggleAuthMode);
+  }
+
   // Profile icon routes to Settings
   const profileBtn = document.getElementById("profile-btn");
   if (profileBtn) {
@@ -1245,3 +1314,130 @@ function escapeHTML(str) {
 
 // Start application when DOM load completes
 document.addEventListener("DOMContentLoaded", initApp);
+
+// --- Authentication Controllers ---
+function handleAuthSubmit(e) {
+  e.preventDefault();
+
+  const emailInput = document.getElementById("auth-email");
+  const passwordInput = document.getElementById("auth-password");
+
+  if (!emailInput || !passwordInput) return;
+
+  const email = emailInput.value.trim().toLowerCase();
+  const password = passwordInput.value;
+
+  // Simple validation checks
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    alert("Please enter a valid email address.");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert("Password must be at least 6 characters long.");
+    return;
+  }
+
+  // Load account database from Local Storage
+  let users = {};
+  const savedUsers = localStorage.getItem("focusflow_users");
+  if (savedUsers) {
+    users = JSON.parse(savedUsers);
+  }
+
+  if (state.authMode === "signup") {
+    // Check if account already exists
+    if (users[email]) {
+      alert("An account with this email already exists. Please Sign In.");
+      return;
+    }
+
+    // Register user credentials
+    users[email] = password;
+    localStorage.setItem("focusflow_users", JSON.stringify(users));
+    alert("Account created successfully! Welcome to FocusFlow.");
+  } else {
+    // Check Sign In credentials
+    if (!users[email] || users[email] !== password) {
+      alert("Invalid email or password. Please try again.");
+      return;
+    }
+  }
+
+  // Set successful login session state
+  state.isAuthenticated = true;
+  state.userEmail = email;
+
+  // Derive username from email (capitalise prefix, e.g. "alex" -> "Alex")
+  const prefix = email.split("@")[0];
+  state.username = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  state.avatar = `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256`; // default
+
+  // Clean inputs
+  emailInput.value = "";
+  passwordInput.value = "";
+
+  // Save session details, reload the state for this user, and route to Home
+  saveState();
+  loadState();
+
+  // Reload profile UI displays
+  const avatarEl = document.getElementById("user-avatar-display");
+  if (avatarEl) avatarEl.src = state.avatar;
+  const usernameInput = document.getElementById("settings-username");
+  if (usernameInput) usernameInput.value = state.username;
+  const avatarInput = document.getElementById("settings-avatar");
+  if (avatarInput) avatarInput.value = state.avatar;
+
+  switchView("home");
+}
+
+function toggleAuthMode() {
+  const submitBtn = document.getElementById("auth-submit-btn");
+  const switchText = document.getElementById("auth-switch-text");
+  const switchBtn = document.getElementById("auth-switch-btn");
+  const formSubtitle = document.getElementById("login-form-subtitle");
+
+  if (state.authMode === "signin") {
+    state.authMode = "signup";
+    if (submitBtn) submitBtn.querySelector("span").textContent = "Create Account";
+    if (switchText) switchText.textContent = "Already have an account?";
+    if (switchBtn) switchBtn.textContent = "Sign In";
+    if (formSubtitle) formSubtitle.textContent = "Join FocusFlow and achieve your goals.";
+  } else {
+    state.authMode = "signin";
+    if (submitBtn) submitBtn.querySelector("span").textContent = "Sign In";
+    if (switchText) switchText.textContent = "Don't have an account?";
+    if (switchBtn) switchBtn.textContent = "Create Account";
+    if (formSubtitle) formSubtitle.textContent = "Organize, focus, and achieve more.";
+  }
+}
+
+function handleLogout() {
+  if (confirm("Are you sure you want to log out? Any running timers will stop.")) {
+    // Clear interval if running
+    if (state.timerIntervalId) {
+      clearInterval(state.timerIntervalId);
+      state.timerIntervalId = null;
+    }
+
+    state.isAuthenticated = false;
+    state.userEmail = "";
+    state.tasks = [];
+    state.categories = ["Work", "Personal", "Shopping"];
+
+    saveState();
+
+    // Reset login form fields
+    const emailInput = document.getElementById("auth-email");
+    const passwordInput = document.getElementById("auth-password");
+    if (emailInput) emailInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+
+    // Reset preset button highlight to default
+    changeTimerPreset(25);
+
+    switchView("login");
+  }
+}
