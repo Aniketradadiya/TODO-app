@@ -37,46 +37,6 @@
     <!-- Main Content Area -->
     <main class="app-main-content">
       
-      <!-- VIEW 0: LOGIN & SIGNUP VIEW -->
-      <section id="view-login" class="app-view">
-        <div class="login-card">
-          <div class="login-brand">
-            <div class="login-brand-icon-wrapper">
-              <i data-lucide="activity" class="login-brand-icon"></i>
-            </div>
-            <h2>FocusFlow</h2>
-            <p id="login-form-subtitle">Organize, focus, and achieve more.</p>
-          </div>
-          
-          <form id="auth-form" class="auth-form">
-            <div class="input-group">
-              <label for="auth-email">EMAIL ADDRESS</label>
-              <div class="input-wrapper">
-                <i data-lucide="mail"></i>
-                <input type="email" id="auth-email" placeholder="name@example.com" required autocomplete="email">
-              </div>
-            </div>
-            
-            <div class="input-group">
-              <label for="auth-password">PASSWORD</label>
-              <div class="input-wrapper">
-                <i data-lucide="lock"></i>
-                <input type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
-              </div>
-            </div>
-            
-            <button type="submit" class="primary-action-btn auth-submit-btn" id="auth-submit-btn">
-              <span>Sign In</span>
-            </button>
-          </form>
-          
-          <div class="auth-switch">
-            <span id="auth-switch-text">Don't have an account?</span>
-            <button type="button" class="link-btn" id="auth-switch-btn">Create Account</button>
-          </div>
-        </div>
-      </section>
-
       <!-- VIEW 1: HOME VIEW -->
       <section id="view-home" class="app-view active">
         <!-- Dashboard Welcome Progress Card -->
@@ -279,13 +239,6 @@
               <span class="stat-label">Productivity</span>
             </div>
           </div>
-        </div>
-
-        <!-- Account details card -->
-        <div class="settings-card account-card">
-          <h3 class="settings-card-title"><i data-lucide="user"></i> Account Session</h3>
-          <p class="account-email-text" id="settings-user-email">Logged in as: -</p>
-          <button class="secondary-btn" id="logout-btn">Log Out</button>
         </div>
 
         <!-- Reset card -->
