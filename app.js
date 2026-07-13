@@ -17,6 +17,12 @@ let state = {
   avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256",
   taskToDeleteId: null, // stores task ID when opening confirmation modal
   
+  // Auth State
+  isLoggedIn: false,
+  currentUser: null,
+  authMode: "login", // login or register
+  selectedRegisterAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256",
+
   // Pomodoro Focus Timer State
   focusTimerMinutes: 25,
   focusTimerSeconds: 0,
@@ -147,63 +153,73 @@ function formatDeadlineDisplay(deadlineString) {
   }
 }
 
-// --- Local Storage Management ---
-function saveState() {
-  localStorage.setItem("focusflow_tasks", JSON.stringify(state.tasks));
-  localStorage.setItem("focusflow_categories", JSON.stringify(state.categories));
-  localStorage.setItem("focusflow_theme", state.theme);
-  localStorage.setItem("focusflow_username", state.username);
-  localStorage.setItem("focusflow_avatar", state.avatar);
+// --- REST API State & Auth Headers ---
+function getAuthHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'x-username': state.currentUser || ''
+  };
 }
 
-function loadState() {
-  const savedTasks = localStorage.getItem("focusflow_tasks");
-  const savedCats = localStorage.getItem("focusflow_categories");
-  const savedTheme = localStorage.getItem("focusflow_theme");
-  const savedUsername = localStorage.getItem("focusflow_username");
-  const savedAvatar = localStorage.getItem("focusflow_avatar");
+function saveState() {
+  // Database persists state on every modification, saveState is kept as dummy to maintain references
+}
 
-  if (savedTasks) {
-    state.tasks = JSON.parse(savedTasks);
+async function loadState() {
+  const currentUser = localStorage.getItem("focusflow_current_user");
+  if (currentUser) {
+    state.isLoggedIn = true;
+    state.currentUser = currentUser;
+    
+    try {
+      const profileRes = await fetch('/api/profile', { headers: getAuthHeaders() });
+      if (profileRes.ok) {
+        const profile = await profileRes.json();
+        state.username = profile.username;
+        state.avatar = profile.avatar;
+        state.theme = profile.theme;
+      } else {
+        throw new Error('Failed to load user profile.');
+      }
+      
+      const tasksRes = await fetch('/api/tasks', { headers: getAuthHeaders() });
+      if (tasksRes.ok) {
+        state.tasks = await tasksRes.json();
+      }
+      
+      const catsRes = await fetch('/api/categories', { headers: getAuthHeaders() });
+      if (catsRes.ok) {
+        state.categories = await catsRes.json();
+      }
+    } catch (err) {
+      console.error(err);
+      localStorage.removeItem("focusflow_current_user");
+      state.isLoggedIn = false;
+      state.currentUser = null;
+    }
   } else {
-    state.tasks = [...DEFAULT_TASKS];
-  }
-
-  if (savedCats) {
-    state.categories = JSON.parse(savedCats);
-  }
-
-  if (savedTheme) {
-    state.theme = savedTheme;
-  }
-
-  if (savedUsername) {
-    state.username = savedUsername;
-  }
-
-  if (savedAvatar) {
-    state.avatar = savedAvatar;
+    state.isLoggedIn = false;
+    state.currentUser = null;
+    state.tasks = [];
+    state.categories = ["Work", "Personal", "Shopping"];
+    state.theme = "light";
   }
 }
 
 // --- Initialize App ---
-function initApp() {
-  loadState();
+async function initApp() {
+  await loadState();
   
   // Set theme class
   if (state.theme === "dark") {
     document.body.classList.add("dark-mode");
     const themeIcon = document.getElementById("theme-icon");
     if (themeIcon) themeIcon.setAttribute("data-lucide", "sun");
+  } else {
+    document.body.classList.remove("dark-mode");
+    const themeIcon = document.getElementById("theme-icon");
+    if (themeIcon) themeIcon.setAttribute("data-lucide", "moon");
   }
-
-  // Set Profile display
-  const avatarEl = document.getElementById("user-avatar-display");
-  if (avatarEl) avatarEl.src = state.avatar;
-  const usernameInput = document.getElementById("settings-username");
-  if (usernameInput) usernameInput.value = state.username;
-  const avatarInput = document.getElementById("settings-avatar");
-  if (avatarInput) avatarInput.value = state.avatar;
 
   // Render Date Indicator on Daily Sprint
   updateSprintDateDisplay();
@@ -211,7 +227,12 @@ function initApp() {
   // Setup Event Listeners
   setupEventListeners();
 
-  // Route to initial view (Home)
+  // If not logged in, force login view
+  if (!state.isLoggedIn) {
+    state.activeView = "login";
+  }
+
+  // Route to initial view
   switchView(state.activeView);
 
   // Initial UI Render
@@ -240,7 +261,7 @@ function updateUI() {
 
   // Stay Focused greeting name
   const greetingEl = document.getElementById("hero-greeting-text");
-  if (greetingEl) greetingEl.textContent = `Stay Focused, ${state.username}.`;
+  if (greetingEl) greetingEl.textContent = `Stay Focused, ${state.username || 'Friend'}.`;
 
   const subtitleEl = document.getElementById("hero-subtitle-text");
   if (subtitleEl) {
@@ -264,22 +285,30 @@ function updateUI() {
   const priorityAlertWidget = document.getElementById("priority-alert-widget");
   
   if (highPriorityPending.length > 0) {
-    priorityAlertWidget.classList.remove("hidden");
+    if (priorityAlertWidget) priorityAlertWidget.classList.remove("hidden");
     const countAlertEl = document.getElementById("priority-alert-count");
     const dueAlertEl = document.getElementById("priority-alert-due");
 
-    countAlertEl.textContent = `${highPriorityPending.length} High Priority`;
+    if (countAlertEl) countAlertEl.textContent = `${highPriorityPending.length} High Priority`;
     
     const tasksWithDeadline = highPriorityPending.filter(t => t.deadline).map(t => new Date(t.deadline).getTime());
     if (tasksWithDeadline.length > 0) {
       const nextDeadline = new Date(Math.min(...tasksWithDeadline));
-      dueAlertEl.textContent = `Due before ${nextDeadline.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      if (dueAlertEl) dueAlertEl.textContent = `Due before ${nextDeadline.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     } else {
-      dueAlertEl.textContent = "Action required today";
+      if (dueAlertEl) dueAlertEl.textContent = "Action required today";
     }
   } else {
-    priorityAlertWidget.classList.add("hidden");
+    if (priorityAlertWidget) priorityAlertWidget.classList.add("hidden");
   }
+
+  // Set Profile display
+  const avatarEl = document.getElementById("user-avatar-display");
+  if (avatarEl) avatarEl.src = state.avatar;
+  const usernameInput = document.getElementById("settings-username");
+  if (usernameInput) usernameInput.value = state.username;
+  const avatarInput = document.getElementById("settings-avatar");
+  if (avatarInput) avatarInput.value = state.avatar;
 
   // Render list panels
   renderHomeTaskList();
@@ -625,6 +654,11 @@ function showEmptyState(targetContainer, resetCallback) {
 
 // --- View Router Controller ---
 function switchView(viewName) {
+  // If not logged in, only allow login view
+  if (!state.isLoggedIn) {
+    viewName = "login";
+  }
+  
   state.activeView = viewName;
   
   document.querySelectorAll(".app-view").forEach(view => {
@@ -637,7 +671,19 @@ function switchView(viewName) {
     targetView.scrollTop = 0;
   }
 
-  if (viewName !== "tasks") {
+  // Toggle app shell headers/footers visibility
+  const headerEl = document.querySelector(".app-header");
+  const bottomNavEl = document.querySelector(".app-bottom-nav");
+  
+  if (viewName === "login") {
+    if (headerEl) headerEl.classList.add("shell-hidden");
+    if (bottomNavEl) bottomNavEl.classList.add("shell-hidden");
+  } else {
+    if (headerEl) headerEl.classList.remove("shell-hidden");
+    if (bottomNavEl) bottomNavEl.classList.remove("shell-hidden");
+  }
+
+  if (viewName !== "tasks" && viewName !== "login") {
     state.sprintCategoryFilter = null;
     const sprintTitle = document.querySelector("#view-tasks .sprint-title");
     const sprintSub = document.querySelector("#view-tasks .sprint-subtitle");
@@ -655,25 +701,37 @@ function switchView(viewName) {
 }
 
 // --- Task State Manipulations ---
-function toggleTaskCompletion(taskId) {
+async function toggleTaskCompletion(taskId) {
   const task = state.tasks.find(t => t.id === taskId);
   if (task) {
-    task.completed = !task.completed;
-    saveState();
-    
-    const cardEl = document.getElementById(`task-card-${taskId}`);
-    if (cardEl) {
-      cardEl.classList.toggle("completed", task.completed);
-      setTimeout(() => {
-        updateUI();
-      }, 350);
-    } else {
-      updateUI();
+    const nextCompleted = !task.completed;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ completed: nextCompleted })
+      });
+      if (res.ok) {
+        task.completed = nextCompleted;
+        const cardEl = document.getElementById(`task-card-${taskId}`);
+        if (cardEl) {
+          cardEl.classList.toggle("completed", task.completed);
+          setTimeout(() => {
+            updateUI();
+          }, 350);
+        } else {
+          updateUI();
+        }
+      } else {
+        alert("Failed to update task completion.");
+      }
+    } catch (err) {
+      console.error(err);
     }
   }
 }
 
-function handleAddTask(e) {
+async function handleAddTask(e) {
   e.preventDefault();
 
   const titleInput = document.getElementById("task-title-input");
@@ -692,23 +750,35 @@ function handleAddTask(e) {
     createdAt: Date.now()
   };
 
-  state.tasks.push(newTask);
-  saveState();
+  try {
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(newTask)
+    });
+    if (res.ok) {
+      state.tasks.push(newTask);
+      
+      titleInput.value = "";
+      prioritySelect.value = "Medium";
+      deadlineInput.value = "";
 
-  titleInput.value = "";
-  prioritySelect.value = "Medium";
-  deadlineInput.value = "";
+      updateUI();
 
-  updateUI();
-
-  const newlyCreated = document.getElementById(`task-card-${newTask.id}`);
-  if (newlyCreated) {
-    newlyCreated.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const newlyCreated = document.getElementById(`task-card-${newTask.id}`);
+      if (newlyCreated) {
+        newlyCreated.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } else {
+      alert("Failed to save task.");
+    }
+  } catch (err) {
+    console.error(err);
   }
 }
 
 // Category Custom Addition
-function handleAddCategory(e) {
+async function handleAddCategory(e) {
   e.preventDefault();
   const input = document.getElementById("new-category-name");
   if (!input || !input.value.trim()) return;
@@ -721,25 +791,47 @@ function handleAddCategory(e) {
     return;
   }
 
-  state.categories.push(formattedName);
-  saveState();
-  input.value = "";
-  updateUI();
-  renderCategoryFormPills();
+  try {
+    const res = await fetch('/api/categories', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name: formattedName })
+    });
+    if (res.ok) {
+      state.categories.push(formattedName);
+      input.value = "";
+      updateUI();
+      renderCategoryFormPills();
+    } else {
+      alert("Failed to create category.");
+    }
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-function deleteCategory(catName) {
+async function deleteCategory(catName) {
   if (confirm(`Are you sure you want to delete "${catName}" category? Associated tasks fall back to "Personal".`)) {
-    state.categories = state.categories.filter(c => c !== catName);
-    state.tasks.forEach(t => {
-      if (t.category === catName) {
-        t.category = "Personal";
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(catName)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        state.categories = state.categories.filter(c => c !== catName);
+        state.tasks.forEach(t => {
+          if (t.category === catName) {
+            t.category = "Personal";
+          }
+        });
+        updateUI();
+        renderCategoryFormPills();
+      } else {
+        alert("Failed to delete category.");
       }
-    });
-
-    saveState();
-    updateUI();
-    renderCategoryFormPills();
+    } catch (err) {
+      console.error(err);
+    }
   }
 }
 
@@ -760,12 +852,23 @@ function closeDeleteModal() {
   }
 }
 
-function executeDeleteTask() {
+async function executeDeleteTask() {
   if (state.taskToDeleteId) {
-    state.tasks = state.tasks.filter(t => t.id !== state.taskToDeleteId);
-    saveState();
-    closeDeleteModal();
-    updateUI();
+    try {
+      const res = await fetch(`/api/tasks/${state.taskToDeleteId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        state.tasks = state.tasks.filter(t => t.id !== state.taskToDeleteId);
+        closeDeleteModal();
+        updateUI();
+      } else {
+        alert("Failed to delete task.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }
 }
 
@@ -952,51 +1055,84 @@ function playTimerAlertSound() {
 }
 
 // --- Settings Modifiers ---
-function saveUsername() {
+async function saveUsername() {
   const input = document.getElementById("settings-username");
   if (input && input.value.trim()) {
-    state.username = input.value.trim();
-    saveState();
-    updateUI();
-    alert("Display name updated!");
+    const nextUsername = input.value.trim();
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ username: nextUsername })
+      });
+      if (res.ok) {
+        state.username = nextUsername;
+        state.currentUser = nextUsername;
+        localStorage.setItem("focusflow_current_user", nextUsername);
+        updateUI();
+        alert("Display name updated!");
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to update username.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }
 }
 
-function saveAvatar() {
+async function saveAvatar() {
   const input = document.getElementById("settings-avatar");
   if (input && input.value.trim()) {
-    state.avatar = input.value.trim();
-    saveState();
-    const displayEl = document.getElementById("user-avatar-display");
-    if (displayEl) displayEl.src = state.avatar;
-    alert("Profile avatar updated!");
+    const nextAvatar = input.value.trim();
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ avatar: nextAvatar })
+      });
+      if (res.ok) {
+        state.avatar = nextAvatar;
+        const displayEl = document.getElementById("user-avatar-display");
+        if (displayEl) displayEl.src = state.avatar;
+        alert("Profile avatar updated!");
+      } else {
+        alert("Failed to update avatar.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }
 }
 
-function resetAllData() {
-  if (confirm("WARNING: Wipes tasks and settings cache. Proceed?")) {
-    localStorage.removeItem("focusflow_tasks");
-    localStorage.removeItem("focusflow_categories");
-    localStorage.removeItem("focusflow_theme");
-    localStorage.removeItem("focusflow_username");
-    localStorage.removeItem("focusflow_avatar");
-    
-    state.tasks = [...DEFAULT_TASKS];
-    state.categories = ["Work", "Personal", "Shopping"];
-    state.theme = "light";
-    state.username = "Alex";
-    state.avatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256";
-    
-    document.body.classList.remove("dark-mode");
-    const themeIcon = document.getElementById("theme-icon");
-    if (themeIcon) themeIcon.setAttribute("data-lucide", "moon");
-    const avatarEl = document.getElementById("user-avatar-display");
-    if (avatarEl) avatarEl.src = state.avatar;
+async function resetAllData() {
+  if (confirm("WARNING: This will wipe your tasks, custom categories, and personalization settings. Proceed?")) {
+    try {
+      const res = await fetch('/api/reset', {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        state.theme = 'light';
+        state.avatar = data.avatar;
+        
+        document.body.classList.remove("dark-mode");
+        const themeIcon = document.getElementById("theme-icon");
+        if (themeIcon) themeIcon.setAttribute("data-lucide", "moon");
+        const avatarEl = document.getElementById("user-avatar-display");
+        if (avatarEl) avatarEl.src = state.avatar;
 
-    saveState();
-    renderCategoryFormPills();
-    updateUI();
-    alert("Workspace reset.");
+        await loadState();
+        renderCategoryFormPills();
+        updateUI();
+        alert("Workspace reset.");
+      } else {
+        alert("Failed to reset workspace.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }
 }
 
@@ -1174,22 +1310,33 @@ function setupEventListeners() {
   // Theme Toggle Toggler
   const themeToggleBtn = document.getElementById("theme-toggle-btn");
   if (themeToggleBtn) {
-    themeToggleBtn.addEventListener("click", () => {
+    themeToggleBtn.addEventListener("click", async () => {
       const body = document.body;
       const themeIcon = document.getElementById("theme-icon");
+      let nextTheme;
       
       if (body.classList.contains("dark-mode")) {
         body.classList.remove("dark-mode");
-        state.theme = "light";
+        nextTheme = "light";
         if (themeIcon) themeIcon.setAttribute("data-lucide", "moon");
       } else {
         body.classList.add("dark-mode");
-        state.theme = "dark";
+        nextTheme = "dark";
         if (themeIcon) themeIcon.setAttribute("data-lucide", "sun");
       }
       
+      state.theme = nextTheme;
       lucide.createIcons();
-      saveState();
+      
+      try {
+        await fetch('/api/theme', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ theme: nextTheme })
+        });
+      } catch (err) {
+        console.error(err);
+      }
     });
   }
 
@@ -1210,6 +1357,39 @@ function setupEventListeners() {
       switchView("settings");
     });
   }
+
+  // Auth Form Submit
+  const authForm = document.getElementById("auth-form");
+  if (authForm) {
+    authForm.addEventListener("submit", handleAuthSubmit);
+  }
+
+  // Auth Mode toggle link
+  const authModeToggleLink = document.getElementById("auth-mode-toggle-link");
+  if (authModeToggleLink) {
+    authModeToggleLink.addEventListener("click", toggleAuthMode);
+  }
+
+  // Password visibility eye button
+  const togglePasswordBtn = document.getElementById("toggle-password-btn");
+  if (togglePasswordBtn) {
+    togglePasswordBtn.addEventListener("click", togglePasswordVisibility);
+  }
+
+  // Logout button click
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", handleLogout);
+  }
+
+  // Register Avatar selections carousel setup
+  document.querySelectorAll(".avatar-option-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".avatar-option-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.selectedRegisterAvatar = btn.getAttribute("data-avatar-url");
+    });
+  });
 
   // Keyboard Shortcuts Hook
   document.addEventListener("keydown", (e) => {
@@ -1241,6 +1421,165 @@ function escapeHTML(str) {
       '"': '&quot;'
     }[tag] || tag)
   );
+}
+
+// --- Authentication Flow Logic ---
+async function handleAuthSubmit(e) {
+  e.preventDefault();
+  
+  const usernameInput = document.getElementById("auth-username");
+  const passwordInput = document.getElementById("auth-password");
+  
+  if (!usernameInput || !passwordInput) return;
+  
+  const usernameVal = usernameInput.value.trim();
+  const passwordVal = passwordInput.value;
+  
+  if (!usernameVal || !passwordVal) return;
+  
+  if (state.authMode === "login") {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: usernameVal, password: passwordVal })
+      });
+      if (res.ok) {
+        const user = await res.json();
+        localStorage.setItem("focusflow_current_user", user.username);
+        
+        await loadState();
+        
+        usernameInput.value = "";
+        passwordInput.value = "";
+        
+        switchView("home");
+      } else {
+        alert("Invalid username or password.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error during login.");
+    }
+  } else {
+    const confirmPasswordInput = document.getElementById("auth-confirm-password");
+    if (!confirmPasswordInput) return;
+    
+    const confirmPasswordVal = confirmPasswordInput.value;
+    
+    if (passwordVal !== confirmPasswordVal) {
+      alert("Passwords do not match.");
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: usernameVal,
+          password: passwordVal,
+          avatar: state.selectedRegisterAvatar
+        })
+      });
+      if (res.ok) {
+        const user = await res.json();
+        localStorage.setItem("focusflow_current_user", user.username);
+        
+        await loadState();
+        
+        usernameInput.value = "";
+        passwordInput.value = "";
+        confirmPasswordInput.value = "";
+        
+        switchView("home");
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to register account.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server error during registration.");
+    }
+  }
+}
+
+function toggleAuthMode() {
+  state.authMode = state.authMode === "login" ? "register" : "login";
+  
+  const formTitle = document.getElementById("login-form-title");
+  const formDesc = document.getElementById("login-form-desc");
+  const btnText = document.getElementById("auth-btn-text");
+  const toggleBtn = document.getElementById("auth-mode-toggle-link");
+  
+  const confirmGroup = document.getElementById("confirm-password-group");
+  const avatarGroup = document.getElementById("avatar-selection-group");
+  
+  const confirmInput = document.getElementById("auth-confirm-password");
+  
+  if (state.authMode === "register") {
+    if (formTitle) formTitle.textContent = "Create Account";
+    if (formDesc) formDesc.textContent = "Sign up to start planning your flow and tracking metrics.";
+    if (btnText) btnText.textContent = "Create Account";
+    if (toggleBtn) toggleBtn.textContent = "Already have an account? Login";
+    
+    if (confirmGroup) confirmGroup.classList.remove("hidden");
+    if (avatarGroup) avatarGroup.classList.remove("hidden");
+    if (confirmInput) confirmInput.setAttribute("required", "required");
+  } else {
+    if (formTitle) formTitle.textContent = "Welcome Back";
+    if (formDesc) formDesc.textContent = "Please sign in to unlock your personal workspace.";
+    if (btnText) btnText.textContent = "Unlock Workspace";
+    if (toggleBtn) toggleBtn.textContent = "Don't have an account? Sign Up";
+    
+    if (confirmGroup) confirmGroup.classList.add("hidden");
+    if (avatarGroup) avatarGroup.classList.add("hidden");
+    if (confirmInput) confirmInput.removeAttribute("required");
+  }
+  
+  lucide.createIcons();
+}
+
+function togglePasswordVisibility() {
+  const passwordInput = document.getElementById("auth-password");
+  const confirmPasswordInput = document.getElementById("auth-confirm-password");
+  const eyeIcon = document.getElementById("password-eye-icon");
+  
+  if (!passwordInput || !eyeIcon) return;
+  
+  const isPassword = passwordInput.getAttribute("type") === "password";
+  
+  passwordInput.setAttribute("type", isPassword ? "text" : "password");
+  if (confirmPasswordInput) {
+    confirmPasswordInput.setAttribute("type", isPassword ? "text" : "password");
+  }
+  
+  eyeIcon.setAttribute("data-lucide", isPassword ? "eye-off" : "eye");
+  lucide.createIcons();
+}
+
+async function handleLogout() {
+  if (confirm("Are you sure you want to log out of FocusFlow?")) {
+    localStorage.removeItem("focusflow_current_user");
+    
+    state.isLoggedIn = false;
+    state.currentUser = null;
+    state.tasks = [];
+    state.categories = ["Work", "Personal", "Shopping"];
+    state.theme = "light";
+    
+    const uInp = document.getElementById("auth-username");
+    const pInp = document.getElementById("auth-password");
+    const cpInp = document.getElementById("auth-confirm-password");
+    if (uInp) uInp.value = "";
+    if (pInp) pInp.value = "";
+    if (cpInp) cpInp.value = "";
+    
+    state.authMode = "register"; // will toggle to login
+    toggleAuthMode();
+    
+    switchView("login");
+  }
 }
 
 // Start application when DOM load completes

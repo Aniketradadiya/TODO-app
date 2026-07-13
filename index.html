@@ -37,6 +37,86 @@
     <!-- Main Content Area -->
     <main class="app-main-content">
       
+      <!-- VIEW 5: LOGIN VIEW -->
+      <section id="view-login" class="app-view">
+        <div class="login-header">
+          <div class="login-logo animate-pop">
+            <i data-lucide="activity" class="login-logo-icon"></i>
+            <h1>FocusFlow</h1>
+          </div>
+          <p class="login-subtitle">Plan your day, achieve your flow.</p>
+        </div>
+
+        <div class="login-card glass-card animate-fade-in">
+          <h2 id="login-form-title" class="form-title">Welcome Back</h2>
+          <p id="login-form-desc" class="form-desc">Please sign in to unlock your personal workspace.</p>
+
+          <form id="auth-form">
+            <!-- Username Input -->
+            <div class="login-input-group">
+              <label for="auth-username" class="field-label">USERNAME</label>
+              <div class="login-input-wrapper">
+                <i data-lucide="user" class="input-icon"></i>
+                <input type="text" id="auth-username" placeholder="Enter username..." required autocomplete="username">
+              </div>
+            </div>
+
+            <!-- Password Input -->
+            <div class="login-input-group">
+              <label for="auth-password" class="field-label">PASSWORD</label>
+              <div class="login-input-wrapper">
+                <i data-lucide="lock" class="input-icon"></i>
+                <input type="password" id="auth-password" placeholder="Enter password..." required autocomplete="current-password">
+                <button type="button" class="password-toggle-btn" id="toggle-password-btn" aria-label="Toggle Password Visibility">
+                  <i data-lucide="eye" id="password-eye-icon"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Confirm Password Input (Register only) -->
+            <div class="login-input-group hidden" id="confirm-password-group">
+              <label for="auth-confirm-password" class="field-label">CONFIRM PASSWORD</label>
+              <div class="login-input-wrapper">
+                <i data-lucide="shield-check" class="input-icon"></i>
+                <input type="password" id="auth-confirm-password" placeholder="Confirm password..." autocomplete="new-password">
+              </div>
+            </div>
+
+            <!-- Avatar Selection Group (Register only) -->
+            <div class="login-input-group hidden" id="avatar-selection-group">
+              <span class="field-label">CHOOSE AVATAR</span>
+              <div class="avatar-carousel" id="register-avatar-carousel">
+                <button type="button" class="avatar-option-btn active" data-avatar-url="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256&h=256">
+                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=64&h=64" alt="Avatar 1">
+                </button>
+                <button type="button" class="avatar-option-btn" data-avatar-url="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=256&h=256">
+                  <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=64&h=64" alt="Avatar 2">
+                </button>
+                <button type="button" class="avatar-option-btn" data-avatar-url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=256&h=256">
+                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=64&h=64" alt="Avatar 3">
+                </button>
+                <button type="button" class="avatar-option-btn" data-avatar-url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=256&h=256">
+                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=64&h=64" alt="Avatar 4">
+                </button>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="primary-action-btn login-submit-btn" id="auth-submit-btn">
+              <span id="auth-btn-text">Unlock Workspace</span>
+              <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
+            </button>
+          </form>
+
+          <!-- Toggle link -->
+          <div class="auth-toggle-row">
+            <button type="button" class="auth-toggle-btn" id="auth-mode-toggle-link">
+              Don't have an account? Sign Up
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- VIEW 1: HOME VIEW -->
       <section id="view-home" class="app-view active">
         <!-- Dashboard Welcome Progress Card -->
@@ -239,6 +319,16 @@
               <span class="stat-label">Productivity</span>
             </div>
           </div>
+        </div>
+
+        <!-- Account session management -->
+        <div class="settings-card">
+          <h3 class="settings-card-title"><i data-lucide="log-out"></i> Account Session</h3>
+          <p style="font-size: 13px; color: var(--color-text-muted); line-height: 1.5;">Sign out of your active workspace session. Your data is stored locally and will be retrieved upon logging back in.</p>
+          <button class="secondary-btn" id="logout-btn" style="width: 100%; border-color: var(--color-border); font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
+            <span>Log Out</span>
+          </button>
         </div>
 
         <!-- Reset card -->
