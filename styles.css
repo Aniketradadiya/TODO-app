@@ -1416,7 +1416,7 @@ kbd {
   -webkit-backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--glass-border);
   display: grid;
-  grid-template-columns: 1fr 1fr 60px 1fr 1fr 1fr;
+  grid-template-columns: repeat(5, 1fr);
   padding: 0 16px;
   z-index: 100;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.05);
