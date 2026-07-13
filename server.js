@@ -12,28 +12,41 @@ app.use(express.static('.'));
 const PORT = process.env.PORT || 3000;
 
 // Database connection details
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-};
-
 let pool;
 
 async function initDB() {
-  // Connect first without database name to ensure it exists
-  const connection = await mysql.createConnection(dbConfig);
-  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'focusflow'}\``);
-  await connection.end();
+  const dbUrl = process.env.DATABASE_URL || process.env.JAWSDB_URL || process.env.CLEARDB_DATABASE_URL;
 
-  // Create connection pool with database selected
-  pool = mysql.createPool({
-    ...dbConfig,
-    database: process.env.DB_NAME || 'focusflow',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-  });
+  if (dbUrl) {
+    console.log('Connecting to database using connection URL...');
+    pool = mysql.createPool(dbUrl);
+  } else {
+    console.log('Connecting to database using individual host config...');
+    const dbConfig = {
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      port: parseInt(process.env.DB_PORT || '3306', 10),
+    };
+
+    // Connect first without database name to ensure it exists
+    try {
+      const connection = await mysql.createConnection(dbConfig);
+      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME || 'focusflow'}\``);
+      await connection.end();
+    } catch (err) {
+      console.warn('Warning: Could not create database. It may already exist or user lacks permission:', err.message);
+    }
+
+    // Create connection pool with database selected
+    pool = mysql.createPool({
+      ...dbConfig,
+      database: process.env.DB_NAME || 'focusflow',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    });
+  }
 
   // Create tables
   await pool.query(`
@@ -362,6 +375,83 @@ app.post('/api/reset', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to reset data.' });
+  }
+});
+
+// --- Workbench Endpoints ---
+
+app.get('/api/workbench/tables', authMiddleware, async (req, res) => {
+  try {
+    const dbName = process.env.DB_NAME || 'focusflow';
+    const [tableRows] = await pool.query('SHOW TABLES');
+    const key = `Tables_in_${dbName}`;
+    const tables = tableRows.map(row => row[key] || Object.values(row)[0]);
+
+    const tableData = [];
+    for (const table of tables) {
+      // Get count
+      const [countRows] = await pool.query(`SELECT COUNT(*) as count FROM \`${table}\``);
+      const count = countRows[0].count;
+
+      // Get columns
+      const [colRows] = await pool.query(`DESCRIBE \`${table}\``);
+      const columns = colRows.map(col => ({
+        name: col.Field,
+        type: col.Type,
+        null: col.Null,
+        key: col.Key,
+        default: col.Default,
+        extra: col.Extra
+      }));
+
+      tableData.push({
+        name: table,
+        count,
+        columns
+      });
+    }
+
+    res.json({ tables: tableData });
+  } catch (err) {
+    console.error('Workbench error fetching tables:', err);
+    res.status(500).json({ error: 'Failed to fetch table metadata: ' + err.message });
+  }
+});
+
+app.post('/api/workbench/query', authMiddleware, async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required.' });
+    }
+
+    const start = Date.now();
+    const [results, fields] = await pool.query(query);
+    const duration = Date.now() - start;
+
+    // Check if it's a SELECT / SHOW / DESCRIBE query or other
+    const isSelect = Array.isArray(results) && (!results.constructor || results.constructor.name !== 'ResultSetHeader');
+    
+    if (isSelect) {
+      const columns = fields ? fields.map(f => f.name) : [];
+      return res.json({
+        type: 'select',
+        columns,
+        rows: results,
+        duration,
+        affectedRows: results.length
+      });
+    } else {
+      return res.json({
+        type: 'mutation',
+        duration,
+        affectedRows: results.affectedRows || 0,
+        insertId: results.insertId || null,
+        info: results.info || ''
+      });
+    }
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

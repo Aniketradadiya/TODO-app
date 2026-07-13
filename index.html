@@ -25,6 +25,9 @@
         <span>FocusFlow</span>
       </div>
       <div class="header-actions">
+        <button id="header-db-btn" class="icon-btn" aria-label="Database Workbench" title="Database Workbench">
+          <i data-lucide="database"></i>
+        </button>
         <button id="theme-toggle-btn" class="icon-btn" aria-label="Toggle Theme">
           <i data-lucide="moon" id="theme-icon"></i>
         </button>
@@ -321,6 +324,16 @@
           </div>
         </div>
 
+        <!-- Database Workbench access -->
+        <div class="settings-card">
+          <h3 class="settings-card-title"><i data-lucide="database"></i> Database Utilities</h3>
+          <p style="font-size: 13px; color: var(--color-text-muted); line-height: 1.5;">Inspect database tables, browse schemas, and execute direct SQL queries in the interactive workbench.</p>
+          <button class="secondary-btn" id="settings-db-workbench-btn" style="width: 100%; border-color: var(--color-border); font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i data-lucide="database" style="width: 16px; height: 16px;"></i>
+            <span>Open Database Workbench</span>
+          </button>
+        </div>
+
         <!-- Account session management -->
         <div class="settings-card">
           <h3 class="settings-card-title"><i data-lucide="log-out"></i> Account Session</h3>
@@ -338,6 +351,94 @@
           <button class="danger-action-btn" id="reset-app-btn">Reset All Data</button>
         </div>
       </section>
+
+      <!-- VIEW 6: DATABASE WORKBENCH VIEW -->
+      <section id="view-database" class="app-view">
+        <div class="sprint-header">
+          <h1 class="sprint-title">Database Workbench</h1>
+          <p class="sprint-subtitle">Inspect schemas, manage records, and execute custom queries.</p>
+        </div>
+
+        <!-- Tables list grid -->
+        <div class="workbench-tables-grid" id="workbench-tables-list">
+          <!-- Dynamically loaded table cards -->
+        </div>
+
+        <!-- Visual Table Explorer Section (Hidden by default until table clicked) -->
+        <div class="settings-card hidden" id="workbench-explorer-card">
+          <div class="workbench-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 class="settings-card-title" style="display: flex; align-items: center; gap: 8px; margin: 0;"><i data-lucide="table-properties"></i> Table Data: <span id="workbench-explorer-table-name">tasks</span></h3>
+            <button class="secondary-btn btn-sm" id="workbench-close-explorer-btn" style="padding: 4px 8px; font-size: 12px;">Close Inspector</button>
+          </div>
+          <div class="workbench-table-scroll">
+            <table class="workbench-data-table" id="workbench-explorer-table">
+              <thead>
+                <!-- Dynamically loaded headers -->
+              </thead>
+              <tbody>
+                <!-- Dynamically loaded rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Interactive SQL Console -->
+        <div class="settings-card">
+          <h3 class="settings-card-title"><i data-lucide="terminal"></i> Interactive SQL Console</h3>
+          
+          <div class="sql-console-controls">
+            <div class="template-selector-wrapper">
+              <label for="workbench-query-templates">Query Template:</label>
+              <select id="workbench-query-templates" class="sort-select">
+                <option value="" selected>-- Select a template --</option>
+                <option value="SELECT * FROM tasks;">Show All Tasks</option>
+                <option value="SELECT * FROM users;">Show All Users</option>
+                <option value="SELECT * FROM categories;">Show All Categories</option>
+                <option value="SELECT t.id, t.title, t.priority, t.completed, u.username FROM tasks t JOIN users u ON t.user_id = u.id;">Join Tasks & Users</option>
+                <option value="SELECT category, COUNT(*) as task_count FROM tasks GROUP BY category;">Count Tasks by Category</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="sql-textarea-wrapper">
+            <textarea id="workbench-sql-input" placeholder="Enter SQL query here..." spellcheck="false">SELECT * FROM tasks;</textarea>
+          </div>
+
+          <div class="sql-actions-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px;">
+            <div id="workbench-query-status" class="query-status-text" style="font-size: 12px; color: var(--color-text-muted);"></div>
+            <button type="button" class="primary-action-btn" id="workbench-run-query-btn" style="padding: 10px 20px;">
+              <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+              <span>Execute SQL</span>
+            </button>
+          </div>
+
+          <!-- SQL Console Error Alert Banner -->
+          <div class="workbench-error-banner hidden" id="workbench-error-banner" style="margin-top: 16px; display: flex; align-items: flex-start; padding: 12px; background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 8px;">
+            <div class="alert-icon-wrapper" style="background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; font-size: 18px;">!</div>
+            <div class="alert-details" style="margin-left: 12px; flex: 1;">
+              <h4 class="alert-title" style="margin: 0; font-size: 14px; font-weight: 700; color: #ef4444;">SQL Execution Error</h4>
+              <p class="alert-subtitle" id="workbench-error-message" style="margin: 4px 0 0 0; font-size: 12px; color: var(--color-text-muted); line-height: 1.4; font-family: monospace; word-break: break-all;"></p>
+            </div>
+          </div>
+
+          <!-- Query Execution Result Logs -->
+          <div class="workbench-results-wrapper hidden" id="workbench-results-card" style="margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 16px;">
+            <div class="workbench-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="margin: 0; font-size: 14px; font-weight: 700;">Execution Output</h4>
+              <span class="query-info-badge" id="workbench-query-info-badge" style="font-size: 11px; background-color: var(--color-bg-alt); padding: 4px 8px; border-radius: 4px; color: var(--color-text-muted);">0 rows returned (12ms)</span>
+            </div>
+            <div class="workbench-table-scroll">
+              <table class="workbench-data-table" id="workbench-results-table">
+                <thead>
+                  <!-- Loaded dynamically -->
+                </thead>
+                <tbody>
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
 
       <!-- EMPTY STATE TEMPLATE (Hidden by default) -->
       <div id="empty-state-template" class="empty-state-container hidden">
@@ -423,6 +524,10 @@
       <button class="nav-item" data-view="folders" aria-label="Navigate to Folders">
         <i data-lucide="folder"></i>
         <span>Folders</span>
+      </button>
+      <button class="nav-item" data-view="database" aria-label="Navigate to Database Workbench">
+        <i data-lucide="database"></i>
+        <span>Database</span>
       </button>
       <button class="nav-item" data-view="settings" aria-label="Navigate to Settings">
         <i data-lucide="settings"></i>

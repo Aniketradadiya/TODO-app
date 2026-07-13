@@ -1416,7 +1416,7 @@ kbd {
   -webkit-backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--glass-border);
   display: grid;
-  grid-template-columns: 1fr 1fr 60px 1fr 1fr;
+  grid-template-columns: 1fr 1fr 60px 1fr 1fr 1fr;
   padding: 0 16px;
   z-index: 100;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.05);
@@ -2092,4 +2092,171 @@ kbd {
 
 .app-bottom-nav.shell-hidden {
   display: none !important;
+}
+
+/* ==========================================================================
+   DATABASE WORKBENCH VIEW STYLING
+   ========================================================================== */
+.workbench-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.workbench-table-card {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  transition: transform var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.workbench-table-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-primary-light);
+  box-shadow: 0 6px 16px rgba(0, 91, 197, 0.08);
+}
+
+.workbench-table-card .card-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 122, 255, 0.1);
+  color: var(--color-primary);
+}
+
+.workbench-table-card .card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workbench-table-card .card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  word-break: break-all;
+}
+
+.workbench-table-card .card-count {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.workbench-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.workbench-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  margin-top: 12px;
+}
+
+.workbench-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+  color: var(--color-text);
+}
+
+.workbench-data-table th, 
+.workbench-data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.workbench-data-table th {
+  background-color: var(--color-bg-alt);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.workbench-data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.workbench-data-table tr:hover {
+  background-color: rgba(0, 122, 255, 0.02);
+}
+
+.dark-mode .workbench-data-table tr:hover {
+  background-color: rgba(0, 122, 255, 0.05);
+}
+
+.sql-console-controls {
+  margin-bottom: 12px;
+}
+
+.template-selector-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-selector-wrapper label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+}
+
+.sql-textarea-wrapper textarea {
+  width: 100%;
+  height: 100px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-alt);
+  color: var(--color-text);
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  line-height: 1.5;
+}
+
+.sql-textarea-wrapper textarea:focus {
+  border-color: var(--color-primary-light);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.btn-delete-row {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-delete-row:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }

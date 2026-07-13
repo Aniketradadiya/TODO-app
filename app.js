@@ -315,6 +315,10 @@ function updateUI() {
   renderSprintTaskList();
   renderFoldersGrid();
   updateSettingsStats(totalTasks, completedTasks, pendingTasks, completionPct);
+
+  if (state.activeView === "database" && state.workbenchTables) {
+    renderWorkbenchTablesGrid();
+  }
 }
 
 // --- Render Tasks: Home View ---
@@ -696,6 +700,10 @@ function switchView(viewName) {
     const isTarget = item.getAttribute("data-view") === viewName;
     item.classList.toggle("active", isTarget);
   });
+
+  if (viewName === "database") {
+    loadDatabaseMetadata();
+  }
   
   updateUI();
 }
@@ -1401,12 +1409,51 @@ function setupEventListeners() {
         if (inp) inp.focus();
       }, 350);
     }
-    
     if (e.key === "Escape") {
       closeDeleteModal();
       closeFocusTimer();
     }
   });
+
+  // Database Workbench navigation & actions bindings
+  const headerDbBtn = document.getElementById("header-db-btn");
+  if (headerDbBtn) {
+    headerDbBtn.addEventListener("click", () => {
+      switchView("database");
+    });
+  }
+
+  const settingsDbBtn = document.getElementById("settings-db-workbench-btn");
+  if (settingsDbBtn) {
+    settingsDbBtn.addEventListener("click", () => {
+      switchView("database");
+    });
+  }
+
+  const queryTemplateSelect = document.getElementById("workbench-query-templates");
+  if (queryTemplateSelect) {
+    queryTemplateSelect.addEventListener("change", (e) => {
+      const val = e.target.value;
+      if (val) {
+        const sqlTextarea = document.getElementById("workbench-sql-input");
+        if (sqlTextarea) {
+          sqlTextarea.value = val;
+        }
+      }
+    });
+  }
+
+  const runQueryBtn = document.getElementById("workbench-run-query-btn");
+  if (runQueryBtn) {
+    runQueryBtn.addEventListener("click", handleRunSQLQuery);
+  }
+
+  const closeExplorerBtn = document.getElementById("workbench-close-explorer-btn");
+  if (closeExplorerBtn) {
+    closeExplorerBtn.addEventListener("click", () => {
+      document.getElementById("workbench-explorer-card").classList.add("hidden");
+    });
+  }
 }
 
 // --- HTML Escaper Helper ---
@@ -1579,6 +1626,274 @@ async function handleLogout() {
     toggleAuthMode();
     
     switchView("login");
+  }
+}
+
+// --- Database Workbench Helpers ---
+
+state.workbenchTables = [];
+
+async function loadDatabaseMetadata() {
+  try {
+    const res = await fetch('/api/workbench/tables', { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      state.workbenchTables = data.tables || [];
+      renderWorkbenchTablesGrid();
+    } else {
+      console.error('Failed to fetch table metadata');
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderWorkbenchTablesGrid() {
+  const container = document.getElementById("workbench-tables-list");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (!state.workbenchTables || state.workbenchTables.length === 0) {
+    container.innerHTML = "<p style='color: var(--color-text-muted); font-size: 13px;'>No tables found.</p>";
+    return;
+  }
+
+  state.workbenchTables.forEach(table => {
+    const card = document.createElement("div");
+    card.className = "workbench-table-card animate-pop";
+    
+    let iconName = "table";
+    if (table.name === "users") iconName = "users";
+    else if (table.name === "tasks") iconName = "clipboard-list";
+    else if (table.name === "categories") iconName = "folder";
+
+    card.innerHTML = `
+      <div class="card-icon-box">
+        <i data-lucide="${iconName}" style="width: 20px; height: 20px;"></i>
+      </div>
+      <div class="card-meta">
+        <h3 class="card-name">${escapeHTML(table.name)}</h3>
+        <span class="card-count">${table.count} rows</span>
+      </div>
+    `;
+
+    card.addEventListener("click", () => {
+      exploreTable(table.name);
+    });
+
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+}
+
+async function exploreTable(tableName) {
+  const explorerCard = document.getElementById("workbench-explorer-card");
+  const tableNameEl = document.getElementById("workbench-explorer-table-name");
+  const tableEl = document.getElementById("workbench-explorer-table");
+  
+  if (!explorerCard || !tableNameEl || !tableEl) return;
+
+  tableNameEl.textContent = tableName;
+  explorerCard.classList.remove("hidden");
+
+  // Show loading indicator
+  tableEl.innerHTML = `<thead><tr><th>Loading table data...</th></tr></thead>`;
+
+  try {
+    const res = await fetch('/api/workbench/query', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query: `SELECT * FROM \`${tableName}\` LIMIT 100;` })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      tableEl.innerHTML = `<thead><tr><th>Error loading data: ${escapeHTML(data.error)}</th></tr></thead>`;
+      return;
+    }
+
+    if (data.rows.length === 0) {
+      tableEl.innerHTML = `<thead><tr><th>Table is empty</th></tr></thead>`;
+      return;
+    }
+
+    const columns = data.columns || [];
+    const primaryKey = columns.includes('id') ? 'id' : columns[0];
+
+    // Header
+    let headerHTML = "<tr>";
+    columns.forEach(col => {
+      headerHTML += `<th>${escapeHTML(col)}</th>`;
+    });
+    headerHTML += "<th>Actions</th></tr>";
+    
+    // Body rows
+    let bodyHTML = "";
+    data.rows.forEach(row => {
+      bodyHTML += "<tr>";
+      columns.forEach(col => {
+        let val = row[col];
+        if (val === null || val === undefined) {
+          val = `<span style="color: var(--color-text-muted); font-style: italic;">NULL</span>`;
+        } else if (typeof val === 'object') {
+          val = JSON.stringify(val);
+        } else {
+          val = escapeHTML(String(val));
+        }
+        bodyHTML += `<td>${val}</td>`;
+      });
+      
+      const pkValue = row[primaryKey];
+      bodyHTML += `
+        <td>
+          <button class="btn-delete-row" title="Delete record" onclick="deleteWorkbenchRecord('${tableName}', '${primaryKey}', '${String(pkValue).replace(/'/g, "\\'")}')">
+            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+          </button>
+        </td>
+      </tr>`;
+    });
+
+    tableEl.innerHTML = `
+      <thead>${headerHTML}</thead>
+      <tbody>${bodyHTML}</tbody>
+    `;
+    lucide.createIcons();
+
+  } catch (err) {
+    tableEl.innerHTML = `<thead><tr><th>Connection error: ${escapeHTML(err.message)}</th></tr></thead>`;
+  }
+}
+
+window.deleteWorkbenchRecord = async function(tableName, primaryKey, pkValue) {
+  if (!confirm(`Are you sure you want to delete this record from '${tableName}' where ${primaryKey} = '${pkValue}'?`)) {
+    return;
+  }
+  
+  const query = `DELETE FROM \`${tableName}\` WHERE \`${primaryKey}\` = '${pkValue.replace(/'/g, "\\'")}';`;
+  
+  try {
+    const res = await fetch('/api/workbench/query', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query })
+    });
+    
+    const data = await res.json();
+    if (res.ok) {
+      alert(`Deleted record successfully. ${data.affectedRows} row(s) affected.`);
+      exploreTable(tableName);
+      loadDatabaseMetadata();
+      await loadState();
+      updateUI();
+    } else {
+      alert(`Failed to delete record: ${data.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+};
+
+async function handleRunSQLQuery() {
+  const sqlInput = document.getElementById("workbench-sql-input");
+  const queryStatus = document.getElementById("workbench-query-status");
+  const errorBanner = document.getElementById("workbench-error-banner");
+  const errorMessage = document.getElementById("workbench-error-message");
+  const resultsCard = document.getElementById("workbench-results-card");
+  const resultsInfo = document.getElementById("workbench-query-info-badge");
+  const resultsTable = document.getElementById("workbench-results-table");
+
+  if (!sqlInput || !queryStatus || !errorBanner || !errorMessage || !resultsCard || !resultsInfo || !resultsTable) return;
+
+  const query = sqlInput.value.trim();
+  if (!query) {
+    alert("Please enter a SQL query first.");
+    return;
+  }
+
+  errorBanner.classList.add("hidden");
+  resultsCard.classList.add("hidden");
+  queryStatus.textContent = "Executing query...";
+
+  try {
+    const res = await fetch('/api/workbench/query', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      queryStatus.textContent = "Execution failed.";
+      errorMessage.textContent = data.error;
+      errorBanner.classList.remove("hidden");
+      return;
+    }
+
+    queryStatus.textContent = `Executed successfully in ${data.duration}ms.`;
+    resultsCard.classList.remove("hidden");
+
+    if (data.type === 'select') {
+      resultsInfo.textContent = `${data.affectedRows} row(s) returned (${data.duration}ms)`;
+      
+      if (data.rows.length === 0) {
+        resultsTable.innerHTML = `<thead><tr><th>Empty result set</th></tr></thead>`;
+        return;
+      }
+
+      const columns = data.columns || [];
+      
+      let headerHTML = "<tr>";
+      columns.forEach(col => {
+        headerHTML += `<th>${escapeHTML(col)}</th>`;
+      });
+      headerHTML += "</tr>";
+
+      let bodyHTML = "";
+      data.rows.forEach(row => {
+        bodyHTML += "<tr>";
+        columns.forEach(col => {
+          let val = row[col];
+          if (val === null || val === undefined) {
+            val = `<span style="color: var(--color-text-muted); font-style: italic;">NULL</span>`;
+          } else if (typeof val === 'object') {
+            val = JSON.stringify(val);
+          } else {
+            val = escapeHTML(String(val));
+          }
+          bodyHTML += `<td>${val}</td>`;
+        });
+        bodyHTML += "</tr>";
+      });
+
+      resultsTable.innerHTML = `
+        <thead>${headerHTML}</thead>
+        <tbody>${bodyHTML}</tbody>
+      `;
+    } else {
+      resultsInfo.textContent = `${data.affectedRows} row(s) affected (${data.duration}ms)`;
+      
+      let detailsHTML = `
+        <tr><td>Affected Rows</td><td>${data.affectedRows}</td></tr>
+        <tr><td>Insert ID</td><td>${data.insertId !== null ? data.insertId : 'N/A'}</td></tr>
+        <tr><td>Message/Info</td><td>${escapeHTML(data.info || 'Successful completion.')}</td></tr>
+      `;
+      
+      resultsTable.innerHTML = `
+        <thead><tr><th colspan="2">Mutation Summary</th></tr></thead>
+        <tbody>${detailsHTML}</tbody>
+      `;
+
+      loadDatabaseMetadata();
+      await loadState();
+      updateUI();
+    }
+  } catch (err) {
+    queryStatus.textContent = "Connection error.";
+    errorMessage.textContent = err.message;
+    errorBanner.classList.remove("hidden");
   }
 }
 
