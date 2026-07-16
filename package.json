@@ -1,14 +1,11 @@
 {
-  "name": "focusflow",
+  "name": "focusflow-workspace",
   "version": "1.0.0",
-  "description": "FocusFlow - Mobile-first Todo App with MySQL",
-  "main": "server.js",
+  "description": "FocusFlow Workspace Root",
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "mysql2": "^3.9.7"
+    "start": "node backend/server.js",
+    "dev": "cd backend && npm run dev",
+    "backend": "cd backend && npm start",
+    "install-all": "cd backend && npm install"
   }
 }

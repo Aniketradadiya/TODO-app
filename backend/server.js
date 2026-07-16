@@ -3,11 +3,11 @@ const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 app.use(express.json());
-app.use(express.static('.'));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 const PORT = process.env.PORT || 3000;
 
