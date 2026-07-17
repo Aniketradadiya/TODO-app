@@ -4,6 +4,7 @@
   "description": "FocusFlow Workspace Root",
   "scripts": {
     "start": "node backend/server.js",
+    "build": "npm install --prefix backend",
     "dev": "cd backend && npm run dev",
     "backend": "cd backend && npm start",
     "install-all": "cd backend && npm install"
