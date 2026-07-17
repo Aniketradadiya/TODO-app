@@ -94,17 +94,25 @@ async function getUserIdByUsername(username) {
 
 // Auth Middleware
 async function authMiddleware(req, res, next) {
-  const username = req.headers['x-username'];
-  if (!username) {
-    return res.status(401).json({ error: 'Unauthorized.' });
+  try {
+    const username = req.headers['x-username'];
+    if (!username) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+    if (!pool) {
+      return res.status(503).json({ error: 'Database not initialized.' });
+    }
+    const userId = await getUserIdByUsername(username);
+    if (!userId) {
+      return res.status(401).json({ error: 'User does not exist.' });
+    }
+    req.userId = userId;
+    req.username = username;
+    next();
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(500).json({ error: 'Server authentication error.' });
   }
-  const userId = await getUserIdByUsername(username);
-  if (!userId) {
-    return res.status(401).json({ error: 'User does not exist.' });
-  }
-  req.userId = userId;
-  req.username = username;
-  next();
 }
 
 // --- Auth Endpoints ---
@@ -456,11 +464,12 @@ app.post('/api/workbench/query', authMiddleware, async (req, res) => {
 });
 
 // Bootstrap Node App
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  
+  // Initialize database asynchronously after server starts
+  initDB().catch(err => {
+    console.error('Failed to initialize server database:', err);
+    console.warn('The application is running, but database operations will fail until connection is established.');
   });
-}).catch(err => {
-  console.error('Failed to initialize server database:', err);
-  process.exit(1);
 });
